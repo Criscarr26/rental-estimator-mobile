@@ -1,98 +1,313 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { SectorPicker } from '@/components/sector-picker';
+import { Palette, Spacing } from '@/constants/theme';
+import { EstimateInput, formatDOP } from '@/lib/model';
+import { estimate, MODEL } from '@/lib/model-data';
+import { useSession } from '@/lib/session';
+import { isCloudConfigured, supabase } from '@/lib/supabase';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+interface Result {
+  input: EstimateInput;
+  price: number;
+}
+
+export default function EstimateScreen() {
+  const { session } = useSession();
+
+  const [sector, setSector] = useState('Bella Vista');
+  const [areaText, setAreaText] = useState('85');
+  const [bedrooms, setBedrooms] = useState(2);
+  const [bathrooms, setBathrooms] = useState(2);
+  const [parking, setParking] = useState(1);
+  const [furnished, setFurnished] = useState(false);
+  const [ageText, setAgeText] = useState('10');
+
+  const [result, setResult] = useState<Result | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [label, setLabel] = useState('');
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function onEstimate() {
+    const area = Number(areaText.replace(',', '.'));
+    const age = Number(ageText.replace(',', '.'));
+    if (!Number.isFinite(area) || area < 20 || area > 1000) {
+      setError('Área inválida: usa un valor entre 20 y 1000 m².');
+      setResult(null);
+      return;
+    }
+    if (!Number.isFinite(age) || age < 0 || age > 80) {
+      setError('Antigüedad inválida: usa un valor entre 0 y 80 años.');
+      setResult(null);
+      return;
+    }
+    const input: EstimateInput = {
+      sector,
+      area_m2: area,
+      bedrooms,
+      bathrooms,
+      parking_spots: parking,
+      furnished: furnished ? 1 : 0,
+      age_years: age,
+    };
+    setError(null);
+    setSaveStatus(null);
+    setResult({ input, price: estimate(input) });
+    setLabel(`${sector} · ${area} m²`);
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
+
+  async function onSave() {
+    if (!result) return;
+    if (!isCloudConfigured || !supabase) {
+      setSaveStatus('Nube no configurada: completa el archivo .env con tus llaves de Supabase (ver README).');
+      return;
+    }
+    if (!session) {
+      setSaveStatus('Inicia sesión en la pestaña Guardadas para poder guardar en la nube.');
+      return;
+    }
+    setSaving(true);
+    const { error: insertError } = await supabase.from('saved_estimates').insert({
+      label: label.trim() || `${result.input.sector} · ${result.input.area_m2} m²`,
+      sector: result.input.sector,
+      area_m2: result.input.area_m2,
+      bedrooms: result.input.bedrooms,
+      bathrooms: result.input.bathrooms,
+      parking_spots: result.input.parking_spots,
+      furnished: result.input.furnished === 1,
+      age_years: result.input.age_years,
+      predicted_price: Math.round(result.price),
+    });
+    setSaving(false);
+    setSaveStatus(insertError ? `Error al guardar: ${insertError.message}` : 'Estimación guardada en la nube.');
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
+  const rmse = MODEL.metrics.rmse;
+  const sectorAvg = result ? (MODEL.avg_price_by_sector[result.input.sector] ?? 0) : 0;
+  const diffVsAvg = result ? result.price - sectorAvg : 0;
+  const diffPct = sectorAvg > 0 ? (diffVsAvg / sectorAvg) * 100 : 0;
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
+        <Text style={styles.sectionTitle}>Datos de la propiedad</Text>
+
+        <Text style={styles.fieldLabel}>Sector</Text>
+        <SectorPicker
+          sectors={MODEL.sectors}
+          value={sector}
+          onChange={setSector}
+          avgPrices={MODEL.avg_price_by_sector}
+        />
+
+        <Text style={styles.fieldLabel}>Área (m²)</Text>
+        <TextInput
+          style={styles.input}
+          value={areaText}
+          onChangeText={setAreaText}
+          keyboardType="numeric"
+          placeholder="85"
+          placeholderTextColor={Palette.textSecondary}
+          testID="area-input"
+        />
+
+        <Stepper label="Habitaciones" value={bedrooms} onChange={setBedrooms} min={1} max={6} />
+        <Stepper label="Baños" value={bathrooms} onChange={setBathrooms} min={1} max={6} />
+        <Stepper label="Parqueos" value={parking} onChange={setParking} min={0} max={4} />
+
+        <View style={styles.switchRow}>
+          <Text style={styles.fieldLabel}>Amueblado</Text>
+          <Switch
+            value={furnished}
+            onValueChange={setFurnished}
+            trackColor={{ false: Palette.border, true: Palette.accent }}
+            thumbColor={Palette.text}
+          />
+        </View>
+
+        <Text style={styles.fieldLabel}>Antigüedad (años)</Text>
+        <TextInput
+          style={styles.input}
+          value={ageText}
+          onChangeText={setAgeText}
+          keyboardType="numeric"
+          placeholder="10"
+          placeholderTextColor={Palette.textSecondary}
+          testID="age-input"
+        />
+
+        {error && <Text style={styles.error}>{error}</Text>}
+
+        <Pressable style={styles.primaryButton} onPress={onEstimate} testID="estimate-button">
+          <Text style={styles.primaryButtonText}>Estimar precio</Text>
+        </Pressable>
+
+        {result && (
+          <View style={styles.resultCard} testID="result-card">
+            <Text style={styles.resultLabel}>Alquiler mensual estimado</Text>
+            <Text style={styles.resultPrice}>{formatDOP(result.price)}</Text>
+            <Text style={styles.resultRange}>
+              Rango típico: {formatDOP(result.price - rmse)} a {formatDOP(result.price + rmse)}
+            </Text>
+            <Text style={styles.resultCompare}>
+              {diffVsAvg >= 0 ? 'Por encima' : 'Por debajo'} del promedio de {result.input.sector} (
+              {formatDOP(sectorAvg)}) en {Math.abs(diffPct).toFixed(0)}%.
+            </Text>
+            <Text style={styles.resultMeta}>
+              Modelo: regresión lineal · R² {MODEL.metrics.r2.toFixed(2)} · error medio{' '}
+              {formatDOP(MODEL.metrics.mae)}
+            </Text>
+
+            <Text style={styles.fieldLabel}>Nombre para guardarla</Text>
+            <TextInput
+              style={styles.input}
+              value={label}
+              onChangeText={setLabel}
+              placeholder="Ej. Apto candidato Piantini"
+              placeholderTextColor={Palette.textSecondary}
+            />
+            <Pressable
+              style={[styles.saveButton, saving && styles.buttonDisabled]}
+              onPress={onSave}
+              disabled={saving}>
+              <Text style={styles.saveButtonText}>
+                {saving ? 'Guardando...' : 'Guardar en la nube'}
+              </Text>
+            </Pressable>
+            {saveStatus && <Text style={styles.saveStatus}>{saveStatus}</Text>}
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-export default function HomeScreen() {
+function Stepper({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+}) {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+    <View style={styles.stepperRow}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.stepperControls}>
+        <Pressable style={styles.stepButton} onPress={() => onChange(Math.max(min, value - 1))}>
+          <Text style={styles.stepButtonText}>−</Text>
+        </Pressable>
+        <Text style={styles.stepValue}>{value}</Text>
+        <Pressable style={styles.stepButton} onPress={() => onChange(Math.min(max, value + 1))}>
+          <Text style={styles.stepButtonText}>+</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
+  flex: { flex: 1, backgroundColor: Palette.background },
+  content: { padding: Spacing.three, paddingBottom: Spacing.five },
+  sectionTitle: {
+    color: Palette.textSecondary,
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: Spacing.two,
+  },
+  fieldLabel: { color: Palette.text, fontSize: 15, marginTop: Spacing.three, marginBottom: Spacing.one },
+  input: {
+    backgroundColor: Palette.card,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    color: Palette.text,
+    fontSize: 16,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+  },
+  stepperRow: {
     flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    justifyContent: 'space-between',
   },
-  heroSection: {
+  stepperControls: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.three },
+  stepButton: {
+    backgroundColor: Palette.card,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 8,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
   },
-  title: {
+  stepButtonText: { color: Palette.accent, fontSize: 20, fontWeight: '700' },
+  stepValue: {
+    color: Palette.text,
+    fontSize: 17,
+    fontWeight: '600',
+    minWidth: 40,
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.two,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  error: { color: Palette.danger, marginTop: Spacing.three },
+  primaryButton: {
+    backgroundColor: Palette.accent,
+    borderRadius: 10,
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    marginTop: Spacing.four,
   },
+  primaryButtonText: { color: Palette.accentText, fontSize: 16, fontWeight: '700' },
+  resultCard: {
+    backgroundColor: Palette.card,
+    borderColor: Palette.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: Spacing.three,
+    marginTop: Spacing.four,
+  },
+  resultLabel: { color: Palette.textSecondary, fontSize: 13 },
+  resultPrice: { color: Palette.accent, fontSize: 34, fontWeight: '800', marginVertical: Spacing.one },
+  resultRange: { color: Palette.text, fontSize: 14, marginBottom: Spacing.one },
+  resultCompare: { color: Palette.text, fontSize: 14, marginBottom: Spacing.two },
+  resultMeta: { color: Palette.textSecondary, fontSize: 12 },
+  saveButton: {
+    backgroundColor: Palette.cardSelected,
+    borderColor: Palette.accent,
+    borderWidth: 1,
+    borderRadius: 10,
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    marginTop: Spacing.three,
+  },
+  saveButtonText: { color: Palette.accent, fontSize: 15, fontWeight: '700' },
+  saveStatus: { color: Palette.textSecondary, fontSize: 13, marginTop: Spacing.two },
+  buttonDisabled: { opacity: 0.6 },
 });
