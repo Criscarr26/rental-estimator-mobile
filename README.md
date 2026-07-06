@@ -1,56 +1,48 @@
-# Welcome to your Expo app 👋
+# Tasador SD - Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Mobile app (iOS/Android) for the [Santo Domingo rental price estimator](https://github.com/Criscarr26/rental-price-estimator-sd). Enter a property's sector, size and features and get an instant monthly rent estimate in DOP, with a confidence range and a comparison against the sector average. Estimates can be saved to the cloud and compared across devices.
 
-## Get started
+Built with Expo (React Native + TypeScript) and Supabase.
 
-1. Install dependencies
+## How it works
 
-   ```bash
-   npm install
-   ```
+- The trained scikit-learn pipeline (OneHotEncoder + StandardScaler + LinearRegression, R² 0.93 on the test split) is exported to `assets/model_params.json` by `scripts/export_model.py`. The app computes predictions **on device** — no inference server, works offline.
+- `scripts/verify-model.mjs` checks the TypeScript port against reference predictions produced by the real Python pipeline.
+- Supabase provides email/password auth and a `saved_estimates` table with Row Level Security, so each user only sees their own saved estimates. The Estimate tab works without any cloud configuration.
 
-2. Start the app
+## Project structure
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+src/app/          expo-router screens: index (Estimar), saved (Guardadas)
+src/lib/          model port, Supabase client, session context
+src/components/   sector picker
+assets/           model_params.json (exported model weights)
+scripts/          export_model.py, verify-model.mjs
+supabase/         schema.sql (table + RLS policies)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Getting started
 
-### Other setup steps
+1. Install dependencies: `npm install`
+2. Cloud setup (optional, needed only for saving):
+   - Create a free project at [supabase.com](https://supabase.com).
+   - Run `supabase/schema.sql` in the SQL Editor.
+   - For quick testing, disable "Confirm email" under Authentication > Sign In / Up.
+   - Copy `.env.example` to `.env` and fill in the Project URL and anon key.
+3. Start the dev server: `npx expo start`
+4. Scan the QR code with the [Expo Go](https://expo.dev/go) app (same Wi-Fi network).
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Verification
 
-## Learn more
+```
+npx tsc --noEmit          # type check
+node scripts/verify-model.mjs   # model port matches the Python pipeline
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Retraining
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+When the model is retrained in the estimator repo, re-export the weights:
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+python scripts/export_model.py <path-to-rental-price-estimator-sd>
+```

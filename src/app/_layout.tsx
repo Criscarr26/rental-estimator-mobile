@@ -1,18 +1,46 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Palette } from '@/constants/theme';
+import { SessionProvider } from '@/lib/session';
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <SessionProvider>
+      <StatusBar style="light" />
+      <Tabs
+        screenOptions={{
+          headerStyle: { backgroundColor: Palette.background },
+          headerTintColor: Palette.text,
+          headerShadowVisible: false,
+          headerTitleStyle: { fontWeight: '700' },
+          tabBarStyle: { backgroundColor: Palette.card, borderTopColor: Palette.border },
+          tabBarActiveTintColor: Palette.accent,
+          tabBarInactiveTintColor: Palette.textSecondary,
+          sceneStyle: { backgroundColor: Palette.background },
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Tasador de Alquileres SD',
+            tabBarLabel: 'Estimar',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="calculator-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="saved"
+          options={{
+            title: 'Mis estimaciones',
+            tabBarLabel: 'Guardadas',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="cloud-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+    </SessionProvider>
   );
 }
