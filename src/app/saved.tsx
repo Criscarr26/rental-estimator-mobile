@@ -1,6 +1,6 @@
 import { Session } from '@supabase/supabase-js';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { ReactNode, useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,18 +10,20 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Palette, Spacing } from '@/constants/theme';
 import { formatDOP } from '@/lib/model';
 import { useSession } from '@/lib/session';
-import { isCloudConfigured, supabase } from '@/lib/supabase';
+import { isCloudConfigured, supabase, withTimeout } from '@/lib/supabase';
 import { SavedEstimate } from '@/lib/types';
 
 export default function SavedScreen() {
   const { session, loading } = useSession();
 
+  let content: ReactNode;
   if (!isCloudConfigured) {
-    return (
+    content = (
       <View style={styles.centered}>
         <Text style={styles.noticeTitle}>Nube no configurada</Text>
         <Text style={styles.noticeText}>
@@ -30,21 +32,23 @@ export default function SavedScreen() {
         </Text>
       </View>
     );
-  }
-
-  if (loading) {
-    return (
+  } else if (loading) {
+    content = (
       <View style={styles.centered}>
         <ActivityIndicator color={Palette.accent} size="large" />
       </View>
     );
+  } else if (!session) {
+    content = <AuthForm />;
+  } else {
+    content = <SavedList session={session} />;
   }
 
-  if (!session) {
-    return <AuthForm />;
-  }
-
-  return <SavedList session={session} />;
+  return (
+    <SafeAreaView style={styles.flex} edges={['top']}>
+      {content}
+    </SafeAreaView>
+  );
 }
 
 function AuthForm() {
@@ -53,22 +57,54 @@ function AuthForm() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  function validate(): boolean {
+    if (!email.trim().includes('@')) {
+      setMessage('Escribe un correo válido.');
+      return false;
+    }
+    if (password.length < 6) {
+      setMessage('La contraseña debe tener al menos 6 caracteres.');
+      return false;
+    }
+    return true;
+  }
+
   async function signIn() {
+    if (!validate()) return;
     setBusy(true);
     setMessage(null);
-    const { error } = await supabase!.auth.signInWithPassword({ email: email.trim(), password });
+    const result = await withTimeout(
+      supabase!.auth.signInWithPassword({ email: email.trim(), password })
+    );
     setBusy(false);
-    if (error) setMessage(`No se pudo iniciar sesión: ${error.message}`);
+    if (result === 'timeout') {
+      setMessage('El servidor no respondió. Revisa tu conexión e intenta de nuevo.');
+      return;
+    }
+    if (result.error) {
+      console.warn('signIn error:', result.error.message);
+      setMessage(
+        result.error.message === 'Invalid login credentials'
+          ? 'Correo o contraseña incorrectos. Si no tienes cuenta, usa "Crear cuenta".'
+          : `No se pudo iniciar sesión: ${result.error.message}`
+      );
+    }
   }
 
   async function signUp() {
+    if (!validate()) return;
     setBusy(true);
     setMessage(null);
-    const { data, error } = await supabase!.auth.signUp({ email: email.trim(), password });
+    const result = await withTimeout(supabase!.auth.signUp({ email: email.trim(), password }));
     setBusy(false);
-    if (error) {
-      setMessage(`No se pudo crear la cuenta: ${error.message}`);
-    } else if (!data.session) {
+    if (result === 'timeout') {
+      setMessage('El servidor no respondió. Revisa tu conexión e intenta de nuevo.');
+      return;
+    }
+    if (result.error) {
+      console.warn('signUp error:', result.error.message);
+      setMessage(`No se pudo crear la cuenta: ${result.error.message}`);
+    } else if (!result.data.session) {
       setMessage('Cuenta creada. Revisa tu correo y confírmala para poder entrar.');
     }
   }

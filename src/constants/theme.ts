@@ -2,19 +2,22 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-// Fixed dark palette, consistent with the Streamlit SaaS version of the estimator.
+// Fixed dark palette: deep navy background with a cyan-to-indigo accent.
 export const Palette = {
-  background: '#0F172A',
-  card: '#1E293B',
-  cardSelected: '#27364F',
-  border: '#334155',
+  background: '#0B1121',
+  card: '#141D33',
+  cardSelected: '#1C2A4A',
+  border: '#243252',
   text: '#F1F5F9',
-  textSecondary: '#94A3B8',
+  textSecondary: '#8FA3C4',
   accent: '#38BDF8',
-  accentText: '#0B1220',
+  accentAlt: '#818CF8',
+  accentText: '#071018',
   success: '#34D399',
-  danger: '#F87171',
+  danger: '#FB7185',
 } as const;
+
+export const CtaGradient = ['#38BDF8', '#818CF8'] as const;
 
 export const Fonts = Platform.select({
   ios: {
