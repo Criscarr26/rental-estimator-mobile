@@ -1,6 +1,6 @@
 # Tasador SD - Mobile
 
-Mobile app (iOS/Android) for the [Santo Domingo rental price estimator](https://github.com/Criscarr26/rental-price-estimator-sd). Enter a property's sector, size and features and get an instant monthly rent estimate in DOP, with a confidence range and a comparison against the sector average. Estimates can be saved to the cloud and compared across devices.
+Mobile app (iOS/Android) for the [Santo Domingo rental price estimator](https://github.com/Criscarr26/rental-price-estimator-sd). Enter a property's sector, size and features and get an instant monthly rent estimate in DOP, with a confidence range and a comparison against the sector average. Every estimate is logged automatically to the cloud, keeping a searchable history of what each client looked for.
 
 Built with Expo (React Native + TypeScript) and Supabase.
 
