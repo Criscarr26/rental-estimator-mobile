@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -10,9 +11,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectorPicker } from '@/components/sector-picker';
-import { Palette, Spacing } from '@/constants/theme';
+import { CtaGradient, Palette, Spacing } from '@/constants/theme';
 import { EstimateInput, formatDOP } from '@/lib/model';
 import { estimate, MODEL } from '@/lib/model-data';
 import { useSession } from '@/lib/session';
@@ -99,11 +101,19 @@ export default function EstimateScreen() {
   const diffPct = sectorAvg > 0 ? (diffVsAvg / sectorAvg) * 100 : 0;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-        <Text style={styles.sectionTitle}>Datos de la propiedad</Text>
+    <SafeAreaView style={styles.flex} edges={['top']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
+          <View style={styles.hero}>
+            <Text style={styles.heroTitle}>Tasador SD</Text>
+            <Text style={styles.heroSubtitle}>
+              Estime el alquiler mensual de una propiedad en Santo Domingo
+            </Text>
+          </View>
+
+          <Text style={styles.sectionTitle}>Datos de la propiedad</Text>
 
         <Text style={styles.fieldLabel}>Sector</Text>
         <SectorPicker
@@ -151,8 +161,16 @@ export default function EstimateScreen() {
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <Pressable style={styles.primaryButton} onPress={onEstimate} testID="estimate-button">
-          <Text style={styles.primaryButtonText}>Estimar precio</Text>
+        <Pressable onPress={onEstimate} testID="estimate-button">
+          {({ pressed }) => (
+            <LinearGradient
+              colors={CtaGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.primaryButton, pressed && styles.primaryButtonPressed]}>
+              <Text style={styles.primaryButtonText}>Estimar precio</Text>
+            </LinearGradient>
+          )}
         </Pressable>
 
         {result && (
@@ -169,8 +187,9 @@ export default function EstimateScreen() {
             {saveStatus && <Text style={styles.saveStatus}>{saveStatus}</Text>}
           </View>
         )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -206,6 +225,14 @@ function Stepper({
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Palette.background },
   content: { padding: Spacing.three, paddingBottom: Spacing.five },
+  hero: { marginTop: Spacing.two, marginBottom: Spacing.four },
+  heroTitle: {
+    color: Palette.text,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  heroSubtitle: { color: Palette.textSecondary, fontSize: 14, marginTop: Spacing.one },
   sectionTitle: {
     color: Palette.textSecondary,
     fontSize: 13,
@@ -256,12 +283,12 @@ const styles = StyleSheet.create({
   },
   error: { color: Palette.danger, marginTop: Spacing.three },
   primaryButton: {
-    backgroundColor: Palette.accent,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: 'center',
     paddingVertical: Spacing.three,
     marginTop: Spacing.four,
   },
+  primaryButtonPressed: { opacity: 0.85 },
   primaryButtonText: { color: Palette.accentText, fontSize: 16, fontWeight: '700' },
   resultCard: {
     backgroundColor: Palette.card,

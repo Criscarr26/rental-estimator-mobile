@@ -11,11 +11,11 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Tabs
         screenOptions={{
-          headerStyle: { backgroundColor: Palette.background },
-          headerTintColor: Palette.text,
-          headerShadowVisible: false,
-          headerTitleStyle: { fontWeight: '700' },
-          tabBarStyle: { backgroundColor: Palette.card, borderTopColor: Palette.border },
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: Palette.card,
+            borderTopColor: Palette.border,
+          },
           tabBarActiveTintColor: Palette.accent,
           tabBarInactiveTintColor: Palette.textSecondary,
           sceneStyle: { backgroundColor: Palette.background },
@@ -23,20 +23,18 @@ export default function RootLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Tasador de Alquileres SD',
             tabBarLabel: 'Estimar',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="calculator-outline" size={size} color={color} />
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons name={focused ? 'calculator' : 'calculator-outline'} size={size} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="saved"
           options={{
-            title: 'Mis estimaciones',
-            tabBarLabel: 'Guardadas',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="cloud-outline" size={size} color={color} />
+            tabBarLabel: 'Historial',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons name={focused ? 'cloud' : 'cloud-outline'} size={size} color={color} />
             ),
           }}
         />

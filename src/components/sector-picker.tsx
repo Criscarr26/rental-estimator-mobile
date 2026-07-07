@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -17,14 +18,18 @@ export function SectorPicker({ sectors, value, onChange, avgPrices }: Props) {
   return (
     <>
       <Pressable style={styles.trigger} onPress={() => setOpen(true)} testID="sector-trigger">
-        <Text style={styles.triggerText}>{value}</Text>
-        <Text style={styles.triggerHint}>Cambiar</Text>
+        <View style={styles.triggerLeft}>
+          <Ionicons name="location" size={18} color={Palette.accent} />
+          <Text style={styles.triggerText}>{value}</Text>
+        </View>
+        <Ionicons name="chevron-down" size={18} color={Palette.textSecondary} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Sector</Text>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Elige el sector</Text>
             <FlatList
               data={sectors}
               keyExtractor={(item) => item}
@@ -35,7 +40,14 @@ export function SectorPicker({ sectors, value, onChange, avgPrices }: Props) {
                     onChange(item);
                     setOpen(false);
                   }}>
-                  <Text style={styles.optionText}>{item}</Text>
+                  <View style={styles.optionLeft}>
+                    {item === value && (
+                      <Ionicons name="checkmark-circle" size={18} color={Palette.accent} />
+                    )}
+                    <Text style={[styles.optionText, item === value && styles.optionTextSelected]}>
+                      {item}
+                    </Text>
+                  </View>
                   <Text style={styles.optionAvg}>prom. {formatDOP(avgPrices[item] ?? 0)}</Text>
                 </Pressable>
               )}
@@ -55,31 +67,38 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.card,
     borderColor: Palette.border,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 14,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
   },
+  triggerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   triggerText: { color: Palette.text, fontSize: 16, fontWeight: '600' },
-  triggerHint: { color: Palette.accent, fontSize: 13 },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: Spacing.four,
+    backgroundColor: 'rgba(3,7,18,0.7)',
+    justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: Palette.card,
-    borderRadius: 14,
-    maxHeight: '70%',
-    paddingVertical: Spacing.two,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
+    paddingBottom: Spacing.four,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Palette.border,
+    marginTop: Spacing.two,
   },
   sheetTitle: {
-    color: Palette.textSecondary,
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    color: Palette.text,
+    fontSize: 17,
+    fontWeight: '700',
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    paddingVertical: Spacing.three,
   },
   option: {
     flexDirection: 'row',
@@ -89,6 +108,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   optionSelected: { backgroundColor: Palette.cardSelected },
+  optionLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   optionText: { color: Palette.text, fontSize: 15 },
+  optionTextSelected: { fontWeight: '700' },
   optionAvg: { color: Palette.textSecondary, fontSize: 12 },
 });
