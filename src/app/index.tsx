@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectorPicker } from '@/components/sector-picker';
 import { CtaGradient, Palette, Spacing } from '@/constants/theme';
-import { EstimateInput, formatDOP } from '@/lib/model';
-import { estimate, MODEL } from '@/lib/model-data';
+import { EstimateInput, formatDOP, predictPrice } from '@/lib/model';
+import { useModel } from '@/lib/model-sync';
 import { useSession } from '@/lib/session';
 import { isCloudConfigured, supabase } from '@/lib/supabase';
 
@@ -27,6 +27,7 @@ interface Result {
 
 export default function EstimateScreen() {
   const { session } = useSession();
+  const { params: model } = useModel();
 
   const [sector, setSector] = useState('Bella Vista');
   const [areaText, setAreaText] = useState('85');
@@ -64,7 +65,7 @@ export default function EstimateScreen() {
     };
     setError(null);
     setSaveStatus(null);
-    const price = estimate(input);
+    const price = predictPrice(model, input);
     setResult({ input, price });
     autoSave(input, price);
   }
@@ -95,8 +96,8 @@ export default function EstimateScreen() {
     );
   }
 
-  const rmse = MODEL.metrics.rmse;
-  const sectorAvg = result ? (MODEL.avg_price_by_sector[result.input.sector] ?? 0) : 0;
+  const rmse = model.metrics.rmse;
+  const sectorAvg = result ? (model.avg_price_by_sector[result.input.sector] ?? 0) : 0;
   const diffVsAvg = result ? result.price - sectorAvg : 0;
   const diffPct = sectorAvg > 0 ? (diffVsAvg / sectorAvg) * 100 : 0;
 
@@ -117,10 +118,10 @@ export default function EstimateScreen() {
 
         <Text style={styles.fieldLabel}>Sector</Text>
         <SectorPicker
-          sectors={MODEL.sectors}
+          sectors={model.sectors}
           value={sector}
           onChange={setSector}
-          avgPrices={MODEL.avg_price_by_sector}
+          avgPrices={model.avg_price_by_sector}
         />
 
         <Text style={styles.fieldLabel}>Área (m²)</Text>

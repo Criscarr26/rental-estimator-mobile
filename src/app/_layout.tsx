@@ -3,11 +3,13 @@ import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { Palette } from '@/constants/theme';
+import { ModelProvider } from '@/lib/model-sync';
 import { SessionProvider } from '@/lib/session';
 
 export default function RootLayout() {
   return (
     <SessionProvider>
+      <ModelProvider>
       <StatusBar style="light" />
       <Tabs
         screenOptions={{
@@ -39,6 +41,7 @@ export default function RootLayout() {
           }}
         />
       </Tabs>
+      </ModelProvider>
     </SessionProvider>
   );
 }
