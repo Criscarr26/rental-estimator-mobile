@@ -219,8 +219,8 @@ function SavedList({ session }: { session: Session }) {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <Text style={styles.noticeText}>
-              Aún no has guardado estimaciones. Haz una en la pestaña Estimar y toca “Guardar en
-              la nube”. Toca dos tarjetas para compararlas.
+              Aún no hay estimaciones en tu historial. Haz una en la pestaña Estimar: cada
+              búsqueda se guarda automáticamente. Toca dos tarjetas para compararlas.
             </Text>
           }
           renderItem={({ item }) => (

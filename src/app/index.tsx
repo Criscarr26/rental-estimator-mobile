@@ -36,9 +36,7 @@ export default function EstimateScreen() {
 
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [label, setLabel] = useState('');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   function onEstimate() {
     const area = Number(areaText.replace(',', '.'));
@@ -64,34 +62,35 @@ export default function EstimateScreen() {
     };
     setError(null);
     setSaveStatus(null);
-    setResult({ input, price: estimate(input) });
-    setLabel(`${sector} · ${area} m²`);
+    const price = estimate(input);
+    setResult({ input, price });
+    autoSave(input, price);
   }
 
-  async function onSave() {
-    if (!result) return;
-    if (!isCloudConfigured || !supabase) {
-      setSaveStatus('Nube no configurada: completa el archivo .env con tus llaves de Supabase (ver README).');
-      return;
-    }
+  // Every estimate is logged to the cloud automatically so there is a
+  // record of what the client searched. Silent when the cloud is not set up.
+  async function autoSave(input: EstimateInput, price: number) {
+    if (!isCloudConfigured || !supabase) return;
     if (!session) {
-      setSaveStatus('Inicia sesión en la pestaña Guardadas para poder guardar en la nube.');
+      setSaveStatus('Inicia sesión en la pestaña Guardadas para llevar el historial en la nube.');
       return;
     }
-    setSaving(true);
     const { error: insertError } = await supabase.from('saved_estimates').insert({
-      label: label.trim() || `${result.input.sector} · ${result.input.area_m2} m²`,
-      sector: result.input.sector,
-      area_m2: result.input.area_m2,
-      bedrooms: result.input.bedrooms,
-      bathrooms: result.input.bathrooms,
-      parking_spots: result.input.parking_spots,
-      furnished: result.input.furnished === 1,
-      age_years: result.input.age_years,
-      predicted_price: Math.round(result.price),
+      label: `${input.sector} · ${input.area_m2} m²`,
+      sector: input.sector,
+      area_m2: input.area_m2,
+      bedrooms: input.bedrooms,
+      bathrooms: input.bathrooms,
+      parking_spots: input.parking_spots,
+      furnished: input.furnished === 1,
+      age_years: input.age_years,
+      predicted_price: Math.round(price),
     });
-    setSaving(false);
-    setSaveStatus(insertError ? `Error al guardar: ${insertError.message}` : 'Estimación guardada en la nube.');
+    setSaveStatus(
+      insertError
+        ? `No se pudo guardar en el historial: ${insertError.message}`
+        : 'Guardada en tu historial en la nube.'
+    );
   }
 
   const rmse = MODEL.metrics.rmse;
@@ -167,27 +166,6 @@ export default function EstimateScreen() {
               {diffVsAvg >= 0 ? 'Por encima' : 'Por debajo'} del promedio de {result.input.sector} (
               {formatDOP(sectorAvg)}) en {Math.abs(diffPct).toFixed(0)}%.
             </Text>
-            <Text style={styles.resultMeta}>
-              Modelo: regresión lineal · R² {MODEL.metrics.r2.toFixed(2)} · error medio{' '}
-              {formatDOP(MODEL.metrics.mae)}
-            </Text>
-
-            <Text style={styles.fieldLabel}>Nombre para guardarla</Text>
-            <TextInput
-              style={styles.input}
-              value={label}
-              onChangeText={setLabel}
-              placeholder="Ej. Apto candidato Piantini"
-              placeholderTextColor={Palette.textSecondary}
-            />
-            <Pressable
-              style={[styles.saveButton, saving && styles.buttonDisabled]}
-              onPress={onSave}
-              disabled={saving}>
-              <Text style={styles.saveButtonText}>
-                {saving ? 'Guardando...' : 'Guardar en la nube'}
-              </Text>
-            </Pressable>
             {saveStatus && <Text style={styles.saveStatus}>{saveStatus}</Text>}
           </View>
         )}
@@ -296,18 +274,6 @@ const styles = StyleSheet.create({
   resultLabel: { color: Palette.textSecondary, fontSize: 13 },
   resultPrice: { color: Palette.accent, fontSize: 34, fontWeight: '800', marginVertical: Spacing.one },
   resultRange: { color: Palette.text, fontSize: 14, marginBottom: Spacing.one },
-  resultCompare: { color: Palette.text, fontSize: 14, marginBottom: Spacing.two },
-  resultMeta: { color: Palette.textSecondary, fontSize: 12 },
-  saveButton: {
-    backgroundColor: Palette.cardSelected,
-    borderColor: Palette.accent,
-    borderWidth: 1,
-    borderRadius: 10,
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    marginTop: Spacing.three,
-  },
-  saveButtonText: { color: Palette.accent, fontSize: 15, fontWeight: '700' },
+  resultCompare: { color: Palette.text, fontSize: 14 },
   saveStatus: { color: Palette.textSecondary, fontSize: 13, marginTop: Spacing.two },
-  buttonDisabled: { opacity: 0.6 },
 });
