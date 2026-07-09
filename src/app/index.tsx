@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import {
@@ -8,7 +10,6 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,30 +31,18 @@ export default function EstimateScreen() {
   const { params: model } = useModel();
 
   const [sector, setSector] = useState('Bella Vista');
-  const [areaText, setAreaText] = useState('85');
+  const [area, setArea] = useState(85);
   const [bedrooms, setBedrooms] = useState(2);
   const [bathrooms, setBathrooms] = useState(2);
   const [parking, setParking] = useState(1);
   const [furnished, setFurnished] = useState(false);
-  const [ageText, setAgeText] = useState('10');
+  const [age, setAge] = useState(10);
 
   const [result, setResult] = useState<Result | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   function onEstimate() {
-    const area = Number(areaText.replace(',', '.'));
-    const age = Number(ageText.replace(',', '.'));
-    if (!Number.isFinite(area) || area < 20 || area > 1000) {
-      setError('Área inválida: usa un valor entre 20 y 1000 m².');
-      setResult(null);
-      return;
-    }
-    if (!Number.isFinite(age) || age < 0 || age > 80) {
-      setError('Antigüedad inválida: usa un valor entre 0 y 80 años.');
-      setResult(null);
-      return;
-    }
     const input: EstimateInput = {
       sector,
       area_m2: area,
@@ -63,7 +52,6 @@ export default function EstimateScreen() {
       furnished: furnished ? 1 : 0,
       age_years: age,
     };
-    setError(null);
     setSaveStatus(null);
     const price = predictPrice(model, input);
     setResult({ input, price });
@@ -75,7 +63,7 @@ export default function EstimateScreen() {
   async function autoSave(input: EstimateInput, price: number) {
     if (!isCloudConfigured || !supabase) return;
     if (!session) {
-      setSaveStatus('Inicia sesión en la pestaña Guardadas para llevar el historial en la nube.');
+      setSaveStatus('Inicia sesión en la pestaña Historial para llevar el historial en la nube.');
       return;
     }
     const { error: insertError } = await supabase.from('saved_estimates').insert({
@@ -116,81 +104,141 @@ export default function EstimateScreen() {
 
           <Text style={styles.sectionTitle}>Datos de la propiedad</Text>
 
-        <Text style={styles.fieldLabel}>Sector</Text>
-        <SectorPicker
-          sectors={model.sectors}
-          value={sector}
-          onChange={setSector}
-          avgPrices={model.avg_price_by_sector}
-        />
-
-        <Text style={styles.fieldLabel}>Área (m²)</Text>
-        <TextInput
-          style={styles.input}
-          value={areaText}
-          onChangeText={setAreaText}
-          keyboardType="numeric"
-          placeholder="85"
-          placeholderTextColor={Palette.textSecondary}
-          testID="area-input"
-        />
-
-        <Stepper label="Habitaciones" value={bedrooms} onChange={setBedrooms} min={1} max={6} />
-        <Stepper label="Baños" value={bathrooms} onChange={setBathrooms} min={1} max={6} />
-        <Stepper label="Parqueos" value={parking} onChange={setParking} min={0} max={4} />
-
-        <View style={styles.switchRow}>
-          <Text style={styles.fieldLabel}>Amueblado</Text>
-          <Switch
-            value={furnished}
-            onValueChange={setFurnished}
-            trackColor={{ false: Palette.border, true: Palette.accent }}
-            thumbColor={Palette.text}
+          <Text style={styles.fieldLabel}>Sector</Text>
+          <SectorPicker
+            sectors={model.sectors}
+            value={sector}
+            onChange={setSector}
+            avgPrices={model.avg_price_by_sector}
           />
-        </View>
 
-        <Text style={styles.fieldLabel}>Antigüedad (años)</Text>
-        <TextInput
-          style={styles.input}
-          value={ageText}
-          onChangeText={setAgeText}
-          keyboardType="numeric"
-          placeholder="10"
-          placeholderTextColor={Palette.textSecondary}
-          testID="age-input"
-        />
+          <LabeledSlider
+            label="Área"
+            value={area}
+            onChange={setArea}
+            min={20}
+            max={1000}
+            step={5}
+            unit="m²"
+            hint="Superficie construida"
+          />
+          <LabeledSlider
+            label="Antigüedad"
+            value={age}
+            onChange={setAge}
+            min={0}
+            max={80}
+            step={1}
+            unit="años"
+            hint="0 = a estrenar"
+          />
 
-        {error && <Text style={styles.error}>{error}</Text>}
+          <Stepper label="Habitaciones" value={bedrooms} onChange={setBedrooms} min={1} max={6} />
+          <Stepper label="Baños" value={bathrooms} onChange={setBathrooms} min={1} max={6} />
+          <Stepper label="Parqueos" value={parking} onChange={setParking} min={0} max={4} />
 
-        <Pressable onPress={onEstimate} testID="estimate-button">
-          {({ pressed }) => (
-            <LinearGradient
-              colors={CtaGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.primaryButton, pressed && styles.primaryButtonPressed]}>
-              <Text style={styles.primaryButtonText}>Estimar precio</Text>
-            </LinearGradient>
-          )}
-        </Pressable>
-
-        {result && (
-          <View style={styles.resultCard} testID="result-card">
-            <Text style={styles.resultLabel}>Alquiler mensual estimado</Text>
-            <Text style={styles.resultPrice}>{formatDOP(result.price)}</Text>
-            <Text style={styles.resultRange}>
-              Rango típico: {formatDOP(result.price - rmse)} a {formatDOP(result.price + rmse)}
-            </Text>
-            <Text style={styles.resultCompare}>
-              {diffVsAvg >= 0 ? 'Por encima' : 'Por debajo'} del promedio de {result.input.sector} (
-              {formatDOP(sectorAvg)}) en {Math.abs(diffPct).toFixed(0)}%.
-            </Text>
-            {saveStatus && <Text style={styles.saveStatus}>{saveStatus}</Text>}
+          <View style={styles.switchRow}>
+            <Text style={styles.fieldLabel}>Amueblado</Text>
+            <Switch
+              value={furnished}
+              onValueChange={setFurnished}
+              trackColor={{ false: Palette.border, true: Palette.accent }}
+              thumbColor={Palette.text}
+            />
           </View>
-        )}
+
+          {result && (
+            <View style={styles.resultCard} testID="result-card">
+              <Text style={styles.resultLabel}>Alquiler mensual estimado</Text>
+              <Text style={styles.resultPrice}>{formatDOP(result.price)}</Text>
+              <Text style={styles.resultRange}>
+                Rango típico: {formatDOP(result.price - rmse)} a {formatDOP(result.price + rmse)}
+              </Text>
+              <Text style={styles.resultCompare}>
+                {diffVsAvg >= 0 ? 'Por encima' : 'Por debajo'} del promedio de {result.input.sector} (
+                {formatDOP(sectorAvg)}) en {Math.abs(diffPct).toFixed(0)}%.
+              </Text>
+              {saveStatus && <Text style={styles.saveStatus}>{saveStatus}</Text>}
+            </View>
+          )}
+
+          <Pressable style={styles.collapsibleHead} onPress={() => setShowInfo((v) => !v)}>
+            <Text style={styles.collapsibleTitle}>¿Cómo se calcula esto?</Text>
+            <Ionicons
+              name={showInfo ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={Palette.accent}
+            />
+          </Pressable>
+          {showInfo && (
+            <Text style={styles.collapsibleBody}>
+              La estimación usa un modelo de regresión lineal entrenado con datos del mercado de
+              alquileres de Santo Domingo, calibrado por sector (R² {model.metrics.r2.toFixed(2)},
+              error medio {formatDOP(model.metrics.mae)}). Es orientativa, no una tasación oficial.
+              La misma cuenta y el mismo historial funcionan en la web y en la app.
+            </Text>
+          )}
         </ScrollView>
+
+        {/* CTA near the thumb: fixed above the tab bar. */}
+        <View style={styles.bottomBar}>
+          <Pressable onPress={onEstimate} testID="estimate-button">
+            {({ pressed }) => (
+              <LinearGradient
+                colors={CtaGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.primaryButton, pressed && styles.primaryButtonPressed]}>
+                <Text style={styles.primaryButtonText}>Estimar precio</Text>
+              </LinearGradient>
+            )}
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function LabeledSlider({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  unit,
+  hint,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  unit?: string;
+  hint?: string;
+}) {
+  return (
+    <View style={styles.sliderBlock}>
+      <View style={styles.sliderHead}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        <Text style={styles.sliderValue}>
+          {value}
+          {unit ? ` ${unit}` : ''}
+        </Text>
+      </View>
+      <Slider
+        minimumValue={min}
+        maximumValue={max}
+        step={step}
+        value={value}
+        onValueChange={onChange}
+        minimumTrackTintColor={Palette.accent}
+        maximumTrackTintColor={Palette.border}
+        thumbTintColor={Palette.accent}
+      />
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    </View>
   );
 }
 
@@ -242,16 +290,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   fieldLabel: { color: Palette.text, fontSize: 15, marginTop: Spacing.three, marginBottom: Spacing.one },
-  input: {
-    backgroundColor: Palette.card,
-    borderColor: Palette.border,
-    borderWidth: 1,
-    borderRadius: 10,
-    color: Palette.text,
-    fontSize: 16,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
+  sliderBlock: { marginTop: Spacing.two },
+  sliderHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
+  sliderValue: {
+    color: Palette.accent,
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: Spacing.three,
+  },
+  fieldHint: { color: Palette.textSecondary, fontSize: 12, marginTop: 2 },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -282,15 +333,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: Spacing.two,
   },
-  error: { color: Palette.danger, marginTop: Spacing.three },
-  primaryButton: {
-    borderRadius: 14,
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    marginTop: Spacing.four,
-  },
-  primaryButtonPressed: { opacity: 0.85 },
-  primaryButtonText: { color: Palette.accentText, fontSize: 16, fontWeight: '700' },
   resultCard: {
     backgroundColor: Palette.card,
     borderColor: Palette.border,
@@ -304,4 +346,33 @@ const styles = StyleSheet.create({
   resultRange: { color: Palette.text, fontSize: 14, marginBottom: Spacing.one },
   resultCompare: { color: Palette.text, fontSize: 14 },
   saveStatus: { color: Palette.textSecondary, fontSize: 13, marginTop: Spacing.two },
+  collapsibleHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.four,
+    paddingVertical: Spacing.two,
+  },
+  collapsibleTitle: { color: Palette.text, fontSize: 15, fontWeight: '700' },
+  collapsibleBody: {
+    color: Palette.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: Spacing.one,
+  },
+  bottomBar: {
+    backgroundColor: Palette.background,
+    borderTopColor: Palette.border,
+    borderTopWidth: 1,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  primaryButton: {
+    borderRadius: 14,
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+  },
+  primaryButtonPressed: { opacity: 0.85 },
+  primaryButtonText: { color: Palette.accentText, fontSize: 16, fontWeight: '700' },
 });
