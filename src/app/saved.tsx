@@ -57,20 +57,22 @@ function AuthForm() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  function validate(): boolean {
+  function validate(isSignup: boolean): boolean {
     if (!email.trim().includes('@')) {
       setMessage('Escribe un correo válido.');
       return false;
     }
-    if (password.length < 6) {
-      setMessage('La contraseña debe tener al menos 6 caracteres.');
+    // Enforce the stronger minimum only on sign-up, so existing accounts
+    // are never locked out of sign-in by a raised policy.
+    if (isSignup && password.length < 8) {
+      setMessage('La contraseña debe tener al menos 8 caracteres.');
       return false;
     }
     return true;
   }
 
   async function signIn() {
-    if (!validate()) return;
+    if (!validate(false)) return;
     setBusy(true);
     setMessage(null);
     const result = await withTimeout(
@@ -92,7 +94,7 @@ function AuthForm() {
   }
 
   async function signUp() {
-    if (!validate()) return;
+    if (!validate(true)) return;
     setBusy(true);
     setMessage(null);
     const result = await withTimeout(supabase!.auth.signUp({ email: email.trim(), password }));
@@ -130,7 +132,7 @@ function AuthForm() {
         style={styles.input}
         value={password}
         onChangeText={setPassword}
-        placeholder="Contraseña (mínimo 6 caracteres)"
+        placeholder="Contraseña (mínimo 8 caracteres)"
         placeholderTextColor={Palette.textSecondary}
         secureTextEntry
       />
