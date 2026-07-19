@@ -4,7 +4,7 @@ Mobile app (iOS/Android) for the [Santo Domingo rental price estimator](https://
 
 Built with Expo (React Native + TypeScript) and Supabase. Part of a product suite together with the [web estimator](https://rental-price-estimator-sd.streamlit.app) and the [real-market data agent](https://github.com/Criscarr26/rental-listings-agent).
 
-> **Status:** working demo. The suite is being unified into a single SaaS platform (shared API, auth and data layer); this repository stays as the standalone mobile demo.
+> **Status:** working demo — and the live mobile client of [Tasador SD](https://github.com/Criscarr26/tasador-sd), the production SaaS platform (shared API, auth and data layer). It syncs model weights from the [production API](https://tasador-sd.vercel.app/health) with an embedded offline fallback.
 
 | Estimate | Cloud history | Sign in |
 |:---:|:---:|:---:|
